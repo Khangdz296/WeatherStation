@@ -128,8 +128,179 @@
     <!-- Firebase v8 compat -->
     <script src="https://www.gstatic.com/firebasejs/11.0.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/11.0.0/firebase-database-compat.js"></script>
-
     <script>
+      const tz = "Asia/Ho_Chi_Minh";
+
+      const firebaseConfig = {
+        apiKey: "AIzaSyCGHeOKBOqgnjjG-H-oD50hIcXpQWOHZ0A",
+        authDomain: "embeddedsystem-79380.firebaseapp.com",
+        databaseURL:
+          "https://embeddedsystem-79380-default-rtdb.asia-southeast1.firebasedatabase.app",
+        projectId: "embeddedsystem-79380",
+        storageBucket: "embeddedsystem-79380.firebasestorage.app",
+        messagingSenderId: "1052320581332",
+        appId: "1:1052320581332:web:61a10aa1319498b0c79d41",
+      };
+
+      firebase.initializeApp(firebaseConfig);
+      const db = firebase.database();
+
+      // Map
+      const map = L.map("map").setView([10.7735, 106.7009], 13);
+      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        maxZoom: 19,
+      }).addTo(map);
+      const marker = L.marker([10.7735, 106.7009]).addTo(map);
+
+      // Charts
+      const ch1 = new Chart(document.getElementById("ch1"), {
+        type: "line",
+        data: {
+          labels: [],
+          datasets: [
+            { label: "Temp (°C)", data: [], yAxisID: "y1" },
+            { label: "Humidity (%)", data: [], yAxisID: "y2" },
+          ],
+        },
+        options: {
+          responsive: true,
+          scales: {
+            y1: { type: "linear", position: "left" },
+            y2: { type: "linear", position: "right" },
+          },
+        },
+      });
+
+      const ch2 = new Chart(document.getElementById("ch2"), {
+        type: "line",
+        data: {
+          labels: [],
+          datasets: [
+            { label: "Pressure (hPa)", data: [], yAxisID: "y1" },
+            { label: "Light (%)", data: [], yAxisID: "y2" },
+          ],
+        },
+        options: {
+          responsive: true,
+          scales: {
+            y1: { type: "linear", position: "left" },
+            y2: { type: "linear", position: "right" },
+          },
+        },
+      });
+
+      // --- HELPER: chuẩn hoá timestamp (giây / mili giây đều chơi được) ---
+      function normalizeTs(rawTs) {
+        let t = Number(rawTs);
+        if (!Number.isFinite(t)) return null;
+        if (t < 1e12) t *= 1000; // nếu là giây → ms
+        return t;
+      }
+
+      function isoLocalFromTs(rawTs) {
+        const t = normalizeTs(rawTs);
+        if (t == null) return "";
+        const d = new Date(t);
+        return d.toLocaleString("vi-VN", { timeZone: tz });
+      }
+
+      // --- LATEST: đọc realtime để fill KPI + map ---
+      function listenLatest() {
+        db.ref("latest").on("value", (snap) => {
+          const j = snap.val();
+          console.log("latest:", j);
+          if (!j) return;
+
+          const temp = j.temp_c;
+          const hum = j.hum_pct;
+          const press = j.pressure_hpa;
+          const light = j.light_pct;
+
+          document.getElementById("kpi-temp").textContent =
+            (temp != null ? temp.toFixed(1) : "--") + " °C";
+          document.getElementById("kpi-hum").textContent =
+            (hum != null ? hum.toFixed(0) : "--") + " %";
+          document.getElementById("kpi-press").textContent =
+            (press != null ? press.toFixed(1) : "--") + " hPa";
+          document.getElementById("kpi-light").textContent =
+            (light != null ? light.toFixed(0) : "--") + " %";
+          document.getElementById("kpi-rain").textContent = j.rain
+            ? "Có"
+            : "Không";
+
+          document.getElementById("updated").textContent =
+            "Cập nhật: " + isoLocalFromTs(j.ts);
+
+          if (j.lat != null && j.lon != null) {
+            marker.setLatLng([j.lat, j.lon]);
+            map.setView([j.lat, j.lon]);
+          }
+        });
+      }
+
+      // chỉ dùng range để quyết định "lấy bao nhiêu điểm gần nhất"
+      function rangeToCount(tag) {
+        if (tag === "1h") return 60; // ví dụ ~60 điểm
+        if (tag === "24h") return 24 * 12; // 288 điểm
+        return 7 * 24 * 12; // 7 ngày
+      }
+
+      async function loadSeries(tag = "24h") {
+        const limit = rangeToCount(tag);
+
+        const snap = await db
+          .ref("history")
+          .orderByChild("ts")
+          .limitToLast(limit)
+          .once("value");
+
+        const rows = [];
+        snap.forEach((child) => {
+          const v = child.val();
+          if (!v || v.ts == null) return;
+          const tMs = normalizeTs(v.ts);
+          if (tMs == null) return;
+          rows.push({ ...v, tsMs: tMs });
+        });
+
+        console.log("total rows for chart:", rows.length);
+
+        rows.sort((a, b) => a.tsMs - b.tsMs);
+
+        const labels = rows.map((x) => isoLocalFromTs(x.tsMs));
+
+        ch1.data.labels = labels;
+        ch1.data.datasets[0].data = rows.map((x) => x.temp_c ?? null);
+        ch1.data.datasets[1].data = rows.map((x) => x.hum_pct ?? null);
+        ch1.update();
+
+        ch2.data.labels = labels;
+        ch2.data.datasets[0].data = rows.map((x) => x.pressure_hpa ?? null);
+        ch2.data.datasets[1].data = rows.map((x) => x.light_pct ?? null);
+        ch2.update();
+      }
+
+      // Toolbar
+      let currentRange = "24h";
+      document.querySelectorAll("button[data-range]").forEach((b) => {
+        b.onclick = () => {
+          document
+            .querySelectorAll("button[data-range]")
+            .forEach((x) => x.classList.remove("active"));
+          b.classList.add("active");
+          currentRange = b.dataset.range;
+          loadSeries(currentRange);
+        };
+      });
+
+      (async () => {
+        listenLatest(); // KPI + map realtime
+        await loadSeries(currentRange); // Chart
+        setInterval(() => loadSeries(currentRange), 15000);
+      })();
+    </script>
+
+    <!-- <script>
       const tz = "Asia/Ho_Chi_Minh";
 
       // 1. Cấu hình Firebase (giữ nguyên của bạn)
@@ -296,6 +467,6 @@
         // nếu muốn auto refresh chart định kỳ:
         setInterval(() => loadSeries(currentRange), 15000);
       })();
-    </script>
+    </script> -->
   </body>
 </html>
