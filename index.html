@@ -14,123 +14,138 @@
     />
     <style>
       body {
-        font-family: system-ui, sans-serif;
+        font-family: system-ui, -apple-system, sans-serif;
         padding: 16px;
         max-width: 1200px;
         margin: auto;
+        background-color: #f5f5f5;
+      }
+      h1 {
+        margin-bottom: 5px;
+        color: #333;
+      }
+      .location-subtitle {
+        color: #666;
+        margin-bottom: 20px;
+        font-size: 16px;
+        display: flex;
+        align-items: center;
+        gap: 5px;
       }
       .grid {
         display: grid;
         gap: 16px;
+        margin-bottom: 20px;
       }
       .cards {
-        grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
       }
       .card {
-        padding: 12px;
-        border: 1px solid #ddd;
-        border-radius: 12px;
-        box-shadow: 0 1px 8px rgba(0, 0, 0, 0.05);
+        padding: 16px;
+        background: white;
+        border: 1px solid #e0e0e0;
+        border-radius: 16px;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
       }
-      #map {
-        height: 300px;
-        border-radius: 12px;
+      .card.forecast {
+        grid-column: span 2;
+        background-color: #fff;
+        transition: background-color 0.5s ease;
       }
-      canvas {
-        background: #fff;
-        border: 1px solid #eee;
-        border-radius: 12px;
-        padding: 8px;
-      }
-      .row {
-        display: grid;
-        grid-template-columns: 1fr;
-        gap: 16px;
-      }
-      @media (min-width: 900px) {
-        .row {
-          grid-template-columns: 1fr 1fr;
+      @media (max-width: 600px) {
+        .card.forecast {
+          grid-column: span 1;
         }
       }
-      .toolbar {
-        display: flex;
-        gap: 8px;
-        align-items: center;
-        margin: 8px 0 16px;
-        flex-wrap: wrap;
-      }
-      button {
-        padding: 8px 12px;
-        border: 1px solid #ccc;
-        border-radius: 8px;
-        background: #fafafa;
-        cursor: pointer;
-      }
-      button.active {
-        border-color: #333;
-      }
       .muted {
-        color: #666;
+        color: #888;
+        font-size: 14px;
+        font-weight: 500;
+        margin-bottom: 8px;
+      }
+      .value {
+        font-size: 28px;
+        font-weight: bold;
+        color: #333;
+      }
+      .forecast-container {
+        display: flex;
+        align-items: center;
+        gap: 15px;
+      }
+      #kpi-forecast-icon {
+        font-size: 40px;
+      }
+      #map {
+        height: 350px;
+        border-radius: 16px;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+        margin-bottom: 20px;
+      }
+      .last-updated {
+        text-align: right;
         font-size: 12px;
+        color: #999;
+        margin-top: -10px;
+        margin-bottom: 20px;
       }
     </style>
   </head>
   <body>
-    <h1>ESP32 Weather Station</h1>
-    <div class="toolbar">
-      <span>Khoảng thời gian:</span>
-      <button data-range="1h">1h</button>
-      <button class="active" data-range="24h">24h</button>
-      <button data-range="7d">7 ngày</button>
-      <span id="updated" class="muted"></span>
+    <h1>🌥️ Trạm Quan Trắc Thời Tiết</h1>
+
+    <div class="location-subtitle">
+      📍 <span id="address-text">Đang xác định vị trí...</span>
     </div>
 
+    <div class="last-updated" id="updated">Đang tải dữ liệu...</div>
+
     <div class="grid cards">
+      <div class="card forecast" id="card-forecast">
+        <div class="muted">Dự Báo Thời Tiết</div>
+        <div class="forecast-container">
+          <div id="kpi-forecast-icon">⏳</div>
+          <div>
+            <div id="kpi-forecast" class="value" style="font-size: 24px">
+              Đang phân tích...
+            </div>
+            <div style="font-size: 12px; color: #666">
+              Dựa trên áp suất & độ ẩm
+            </div>
+          </div>
+        </div>
+      </div>
+
       <div class="card">
         <div class="muted">Nhiệt độ</div>
-        <div id="kpi-temp" style="font-size: 28px">-- °C</div>
+        <div id="kpi-temp" class="value">-- °C</div>
       </div>
       <div class="card">
         <div class="muted">Độ ẩm</div>
-        <div id="kpi-hum" style="font-size: 28px">-- %</div>
+        <div id="kpi-hum" class="value">-- %</div>
       </div>
       <div class="card">
         <div class="muted">Áp suất</div>
-        <div id="kpi-press" style="font-size: 28px">-- hPa</div>
+        <div id="kpi-press" class="value">-- hPa</div>
       </div>
       <div class="card">
         <div class="muted">Ánh sáng</div>
-        <div id="kpi-light" style="font-size: 28px">-- %</div>
-      </div>
-      <div class="card">
-        <div class="muted">Mưa</div>
-        <div id="kpi-rain" style="font-size: 28px">--</div>
+        <div id="kpi-light" class="value">-- %</div>
       </div>
     </div>
 
-    <h3>Vị trí trạm</h3>
+    <h3>📍 Bản đồ trực tuyến</h3>
     <div id="map"></div>
 
-    <div class="row">
-      <div>
-        <h3>Nhiệt độ / Độ ẩm</h3>
-        <canvas id="ch1"></canvas>
-      </div>
-      <div>
-        <h3>Áp suất / Ánh sáng</h3>
-        <canvas id="ch2"></canvas>
-      </div>
-    </div>
-
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1"></script>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-
-    <!-- Firebase v8 compat -->
     <script src="https://www.gstatic.com/firebasejs/11.0.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/11.0.0/firebase-database-compat.js"></script>
+
     <script>
-      const tz = "Asia/Ho_Chi_Minh";
-
+      // 1. CẤU HÌNH FIREBASE
       const firebaseConfig = {
         apiKey: "AIzaSyCGHeOKBOqgnjjG-H-oD50hIcXpQWOHZ0A",
         authDomain: "embeddedsystem-79380.firebaseapp.com",
@@ -145,328 +160,136 @@
       firebase.initializeApp(firebaseConfig);
       const db = firebase.database();
 
-      // Map
-      const map = L.map("map").setView([10.7735, 106.7009], 13);
+      // 2. KHỞI TẠO BẢN ĐỒ
+      const map = L.map("map").setView([10.7735, 106.7009], 15);
       L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
         maxZoom: 19,
+        attribution: "© OpenStreetMap",
       }).addTo(map);
-      const marker = L.marker([10.7735, 106.7009]).addTo(map);
+      const marker = L.marker([10.7735, 106.7009])
+        .addTo(map)
+        .bindPopup("Vị trí thiết bị")
+        .openPopup();
 
-      // Charts
-      const ch1 = new Chart(document.getElementById("ch1"), {
-        type: "line",
-        data: {
-          labels: [],
-          datasets: [
-            { label: "Temp (°C)", data: [], yAxisID: "y1" },
-            { label: "Humidity (%)", data: [], yAxisID: "y2" },
-          ],
-        },
-        options: {
-          responsive: true,
-          scales: {
-            y1: { type: "linear", position: "left" },
-            y2: { type: "linear", position: "right" },
-          },
-        },
-      });
-
-      const ch2 = new Chart(document.getElementById("ch2"), {
-        type: "line",
-        data: {
-          labels: [],
-          datasets: [
-            { label: "Pressure (hPa)", data: [], yAxisID: "y1" },
-            { label: "Light (%)", data: [], yAxisID: "y2" },
-          ],
-        },
-        options: {
-          responsive: true,
-          scales: {
-            y1: { type: "linear", position: "left" },
-            y2: { type: "linear", position: "right" },
-          },
-        },
-      });
-
-      // --- HELPER: chuẩn hoá timestamp (giây / mili giây đều chơi được) ---
-      function normalizeTs(rawTs) {
-        let t = Number(rawTs);
-        if (!Number.isFinite(t)) return null;
-        if (t < 1e12) t *= 1000; // nếu là giây → ms
-        return t;
+      // 3. HÀM DỰ BÁO THỜI TIẾT
+      function getWeatherForecast(pressure, humidity) {
+        if (!pressure || !humidity)
+          return { text: "Chờ dữ liệu...", icon: "⏳", color: "#fff" };
+        if (pressure < 995) {
+          return { text: "Bão / Giông Lớn", icon: "⛈️", color: "#ffebee" };
+        } else if (pressure < 1005 && humidity > 70) {
+          return { text: "Trời Mưa", icon: "🌧️", color: "#e3f2fd" };
+        } else if (pressure > 1015 && humidity < 60) {
+          return { text: "Nắng Đẹp", icon: "☀️", color: "#fffde7" };
+        } else {
+          return { text: "Nhiều Mây", icon: "☁️", color: "#f5f5f5" };
+        }
       }
 
-      function isoLocalFromTs(rawTs) {
-        const t = normalizeTs(rawTs);
-        if (t == null) return "";
-        const d = new Date(t);
-        return d.toLocaleString("vi-VN", { timeZone: tz });
+      // 4. [MỚI] HÀM LẤY TÊN ĐỊA CHỈ (QUẬN/HUYỆN) TỪ TỌA ĐỘ
+      // Biến lưu vị trí cũ để không gọi API liên tục nếu vị trí không đổi
+      let lastLat = 0;
+      let lastLon = 0;
+
+      async function getAddressName(lat, lon) {
+        // Tính khoảng cách sơ bộ, nếu thiết bị di chuyển ít hơn ~100m (0.001 độ) thì không gọi lại API
+        if (
+          Math.abs(lat - lastLat) < 0.001 &&
+          Math.abs(lon - lastLon) < 0.001
+        ) {
+          return; // Vị trí chưa thay đổi đáng kể, thoát hàm
+        }
+
+        lastLat = lat;
+        lastLon = lon;
+
+        document.getElementById("address-text").innerText =
+          "Đang cập nhật địa chỉ...";
+
+        try {
+          // Gọi API miễn phí của OpenStreetMap
+          const response = await fetch(
+            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=14&addressdetails=1`,
+            {
+              headers: {
+                "User-Agent": "ESP32-Weather-Station-Student-Project",
+              },
+            }
+          );
+          const data = await response.json();
+
+          if (data && data.address) {
+            // Ưu tiên lấy Quận/Huyện
+            const district =
+              data.address.city_district ||
+              data.address.district ||
+              data.address.county ||
+              data.address.suburb;
+            const city = data.address.city || data.address.state;
+
+            let locationStr = "";
+            if (district) locationStr += district;
+            if (district && city) locationStr += ", ";
+            if (city) locationStr += city;
+
+            document.getElementById("address-text").innerText =
+              locationStr || "Không xác định tên";
+          }
+        } catch (error) {
+          console.error("Lỗi lấy địa chỉ:", error);
+          document.getElementById("address-text").innerText =
+            "Lỗi mạng định vị";
+        }
       }
 
-      // --- LATEST: đọc realtime để fill KPI + map ---
+      // 5. LẮNG NGHE DỮ LIỆU REALTIME
       function listenLatest() {
-        db.ref("latest").on("value", (snap) => {
-          const j = snap.val();
-          console.log("latest:", j);
-          if (!j) return;
+        db.ref("data").on("value", (snap) => {
+          const data = snap.val();
+          if (!data) return;
 
-          const temp = j.temp_c;
-          const hum = j.hum_pct;
-          const press = j.pressure_hpa;
-          const light = j.light_pct;
+          const temp = data.temp ?? 0;
+          const hum = data.hum ?? 0;
+          let press = data.press ?? 0;
+          if (press > 2000) press = press / 100;
+          const light = data.light ?? 0;
+          const lat = data.lat;
+          const lon = data.lon;
 
-          document.getElementById("kpi-temp").textContent =
-            (temp != null ? temp.toFixed(1) : "--") + " °C";
-          document.getElementById("kpi-hum").textContent =
-            (hum != null ? hum.toFixed(0) : "--") + " %";
-          document.getElementById("kpi-press").textContent =
-            (press != null ? press.toFixed(1) : "--") + " hPa";
-          document.getElementById("kpi-light").textContent =
-            (light != null ? light.toFixed(0) : "--") + " %";
-          document.getElementById("kpi-rain").textContent = j.rain
-            ? "Có"
-            : "Không";
+          // Cập nhật số liệu
+          document.getElementById("kpi-temp").innerText =
+            temp.toFixed(1) + " °C";
+          document.getElementById("kpi-hum").innerText = hum.toFixed(0) + " %";
+          document.getElementById("kpi-press").innerText =
+            press.toFixed(1) + " hPa";
+          document.getElementById("kpi-light").innerText =
+            light.toFixed(0) + " %";
 
-          document.getElementById("updated").textContent =
-            "Cập nhật: " + isoLocalFromTs(j.ts);
+          const now = new Date();
+          document.getElementById("updated").innerText =
+            "Cập nhật: " + now.toLocaleString("vi-VN");
 
-          if (j.lat != null && j.lon != null) {
-            marker.setLatLng([j.lat, j.lon]);
-            map.setView([j.lat, j.lon]);
+          // Xử lý dự báo
+          const forecast = getWeatherForecast(press, hum);
+          document.getElementById("kpi-forecast").innerText = forecast.text;
+          document.getElementById("kpi-forecast-icon").innerText =
+            forecast.icon;
+          document.getElementById("card-forecast").style.backgroundColor =
+            forecast.color;
+
+          // Cập nhật MAP và ĐỊA CHỈ
+          if (lat && lon) {
+            const newLatLng = new L.LatLng(lat, lon);
+            marker.setLatLng(newLatLng);
+            map.setView(newLatLng);
+
+            // [MỚI] Gọi hàm lấy tên Quận
+            getAddressName(lat, lon);
           }
         });
       }
 
-      // chỉ dùng range để quyết định "lấy bao nhiêu điểm gần nhất"
-      function rangeToCount(tag) {
-        if (tag === "1h") return 60; // ví dụ ~60 điểm
-        if (tag === "24h") return 24 * 12; // 288 điểm
-        return 7 * 24 * 12; // 7 ngày
-      }
-
-      async function loadSeries(tag = "24h") {
-        const limit = rangeToCount(tag);
-
-        const snap = await db
-          .ref("history")
-          .orderByChild("ts")
-          .limitToLast(limit)
-          .once("value");
-
-        const rows = [];
-        snap.forEach((child) => {
-          const v = child.val();
-          if (!v || v.ts == null) return;
-          const tMs = normalizeTs(v.ts);
-          if (tMs == null) return;
-          rows.push({ ...v, tsMs: tMs });
-        });
-
-        console.log("total rows for chart:", rows.length);
-
-        rows.sort((a, b) => a.tsMs - b.tsMs);
-
-        const labels = rows.map((x) => isoLocalFromTs(x.tsMs));
-
-        ch1.data.labels = labels;
-        ch1.data.datasets[0].data = rows.map((x) => x.temp_c ?? null);
-        ch1.data.datasets[1].data = rows.map((x) => x.hum_pct ?? null);
-        ch1.update();
-
-        ch2.data.labels = labels;
-        ch2.data.datasets[0].data = rows.map((x) => x.pressure_hpa ?? null);
-        ch2.data.datasets[1].data = rows.map((x) => x.light_pct ?? null);
-        ch2.update();
-      }
-
-      // Toolbar
-      let currentRange = "24h";
-      document.querySelectorAll("button[data-range]").forEach((b) => {
-        b.onclick = () => {
-          document
-            .querySelectorAll("button[data-range]")
-            .forEach((x) => x.classList.remove("active"));
-          b.classList.add("active");
-          currentRange = b.dataset.range;
-          loadSeries(currentRange);
-        };
-      });
-
-      (async () => {
-        listenLatest(); // KPI + map realtime
-        await loadSeries(currentRange); // Chart
-        setInterval(() => loadSeries(currentRange), 15000);
-      })();
+      listenLatest();
     </script>
-
-    <!-- <script>
-      const tz = "Asia/Ho_Chi_Minh";
-
-      // 1. Cấu hình Firebase (giữ nguyên của bạn)
-      const firebaseConfig = {
-        apiKey: "AIzaSyCGHeOKBOqgnjjG-H-oD50hIcXpQWOHZ0A",
-        authDomain: "embeddedsystem-79380.firebaseapp.com",
-        databaseURL:
-          "https://embeddedsystem-79380-default-rtdb.asia-southeast1.firebasedatabase.app",
-        projectId: "embeddedsystem-79380",
-        storageBucket: "embeddedsystem-79380.firebasestorage.app",
-        messagingSenderId: "1052320581332",
-        appId: "1:1052320581332:web:61a10aa1319498b0c79d41",
-      };
-
-      firebase.initializeApp(firebaseConfig);
-      const db = firebase.database();
-
-      // 2. Map
-      const map = L.map("map").setView([10.7735, 106.7009], 13);
-      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-        maxZoom: 19,
-      }).addTo(map);
-      const marker = L.marker([10.7735, 106.7009]).addTo(map);
-
-      // 3. Charts
-      const ch1 = new Chart(document.getElementById("ch1"), {
-        type: "line",
-        data: {
-          labels: [],
-          datasets: [
-            { label: "Temp (°C)", data: [], yAxisID: "y1" },
-            { label: "Humidity (%)", data: [], yAxisID: "y2" },
-          ],
-        },
-        options: {
-          responsive: true,
-          scales: {
-            y1: { type: "linear", position: "left" },
-            y2: { type: "linear", position: "right" },
-          },
-        },
-      });
-
-      const ch2 = new Chart(document.getElementById("ch2"), {
-        type: "line",
-        data: {
-          labels: [],
-          datasets: [
-            { label: "Pressure (hPa)", data: [], yAxisID: "y1" },
-            { label: "Light (%)", data: [], yAxisID: "y2" },
-          ],
-        },
-        options: {
-          responsive: true,
-          scales: {
-            y1: { type: "linear", position: "left" },
-            y2: { type: "linear", position: "right" },
-          },
-        },
-      });
-
-      // Helper: chuyển ts (number / string) -> text giờ VN
-      function isoLocalFromTs(ts) {
-        const t = Number(ts); // ép về number
-        if (!Number.isFinite(t)) return "";
-        const d = new Date(t); // t là ms since epoch
-        return d.toLocaleString("vi-VN", { timeZone: tz });
-      }
-
-      // 4. Đọc bản ghi mới nhất ở /latest (real-time)
-      function listenLatest() {
-        db.ref("latest").on("value", (snap) => {
-          const j = snap.val();
-          console.log("latest:", j);
-          if (!j) return;
-
-          const temp = j.temp_c;
-          const hum = j.hum_pct;
-          const press = j.pressure_hpa;
-          const light = j.light_pct;
-
-          document.getElementById("kpi-temp").textContent =
-            (temp != null ? temp.toFixed(1) : "--") + " °C";
-          document.getElementById("kpi-hum").textContent =
-            (hum != null ? hum.toFixed(0) : "--") + " %";
-          document.getElementById("kpi-press").textContent =
-            (press != null ? press.toFixed(1) : "--") + " hPa";
-          document.getElementById("kpi-light").textContent =
-            (light != null ? light.toFixed(0) : "--") + " %";
-          document.getElementById("kpi-rain").textContent = j.rain
-            ? "Có"
-            : "Không";
-
-          document.getElementById("updated").textContent =
-            "Cập nhật: " + isoLocalFromTs(j.ts);
-
-          if (j.lat != null && j.lon != null) {
-            marker.setLatLng([j.lat, j.lon]);
-            map.setView([j.lat, j.lon]);
-          }
-        });
-      }
-
-      function rangeToMs(tag) {
-        if (tag === "1h") return 3600e3;
-        if (tag === "24h") return 24 * 3600e3;
-        return 7 * 24 * 3600e3; // 7 ngày
-      }
-
-      async function loadSeries(tag = "24h") {
-        const now = Date.now();
-        const fromMs = now - rangeToMs(tag);
-
-        // Lấy tối đa 500 bản ghi gần nhất
-        const snap = await db.ref("history").limitToLast(500).once("value");
-
-        const rows = [];
-        snap.forEach((child) => {
-          const v = child.val();
-          if (!v || v.ts == null) return;
-
-          const t = Number(v.ts); // ts là ms epoch
-          if (t >= fromMs && t <= now + 10000) {
-            rows.push({ ...v, tsMs: t });
-          }
-        });
-
-        // Debug xem thực tế có bao nhiêu điểm
-        console.log("total rows after filter:", rows.length);
-
-        // Sắp xếp theo thời gian tăng dần
-        rows.sort((a, b) => a.tsMs - b.tsMs);
-
-        const labels = rows.map((x) => isoLocalFromTs(x.tsMs));
-
-        ch1.data.labels = labels;
-        ch1.data.datasets[0].data = rows.map((x) => x.temp_c ?? null);
-        ch1.data.datasets[1].data = rows.map((x) => x.hum_pct ?? null);
-        ch1.update();
-
-        ch2.data.labels = labels;
-        ch2.data.datasets[0].data = rows.map((x) => x.pressure_hpa ?? null);
-        ch2.data.datasets[1].data = rows.map((x) => x.light_pct ?? null);
-        ch2.update();
-      }
-
-      // 7. Toolbar range
-      let currentRange = "24h";
-      document.querySelectorAll("button[data-range]").forEach((b) => {
-        b.onclick = () => {
-          document
-            .querySelectorAll("button[data-range]")
-            .forEach((x) => x.classList.remove("active"));
-          b.classList.add("active");
-          currentRange = b.dataset.range;
-          loadSeries(currentRange);
-        };
-      });
-
-      // 8. Khởi động
-      (async () => {
-        listenLatest(); // realtime KPI + map
-        await loadSeries(currentRange); // history + chart
-        // nếu muốn auto refresh chart định kỳ:
-        setInterval(() => loadSeries(currentRange), 15000);
-      })();
-    </script> -->
   </body>
 </html>
